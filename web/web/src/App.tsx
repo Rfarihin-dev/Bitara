@@ -7,23 +7,6 @@ interface ChatMessage {
   thought?: string;
 }
 
-// Monogram SVG berjalur inspirasi logo rasmi Bitara
-const BitaraMonogram = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 100 80" fill="currentColor" className={className}>
-    <rect x="0" y="0" width="85" height="4.5" rx="1" />
-    <rect x="5" y="7.5" width="83" height="4.5" rx="1" />
-    <rect x="10" y="15" width="81" height="4.5" rx="1" />
-    <rect x="16" y="22.5" width="79" height="4.5" rx="1" />
-    <rect x="23" y="30" width="77" height="4.5" rx="1" />
-    <rect x="29" y="37.5" width="75" height="4.5" rx="1" />
-    <rect x="23" y="45" width="77" height="4.5" rx="1" />
-    <rect x="16" y="52.5" width="79" height="4.5" rx="1" />
-    <rect x="10" y="60" width="81" height="4.5" rx="1" />
-    <rect x="5" y="67.5" width="83" height="4.5" rx="1" />
-    <rect x="0" y="75" width="85" height="4.5" rx="1" />
-  </svg>
-);
-
 export default function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -49,7 +32,7 @@ export default function App() {
         contents: userPrompt,
         config: {
           systemInstruction: deepThinkActive
-            ? 'Kau ialah enjin diagnostik Bitara. Sentiasa berikan analisis berstruktur, logik mendalam, dan ringkas.'
+            ? 'Kau ialah enjin Bitara. Sentiasa berikan analisis berstruktur, logik mendalam, dan teknikal.'
             : 'Kau ialah enjin Bitara. Jawab soalan secara pantas dan tepat.',
         },
       });
@@ -61,7 +44,7 @@ export default function App() {
           role: 'assistant',
           content: replyText,
           thought: deepThinkActive
-            ? 'Bitara AST & Curriculum Alignment: Memvalidasi integriti struktur sintaks dan silibus...'
+            ? 'Bitara Diagnostic: Validating AST patterns & aligning curriculum logic...'
             : undefined,
         },
       ]);
@@ -70,7 +53,7 @@ export default function App() {
         ...newHistory,
         {
           role: 'assistant',
-          content: `Ralat enjin Bitara: ${err.message || 'Sila pastikan API Key adalah sah.'}`,
+          content: `Ralat enjin: ${err.message || 'Sila pastikan API Key adalah sah.'}`,
         },
       ]);
     } finally {
@@ -79,25 +62,21 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen w-screen bg-[#0b0e14] text-slate-100 flex flex-col justify-between font-sans overflow-x-hidden selection:bg-slate-700">
-      {/* Background Subtle Tech Grid */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-20" 
-        style={{
-          backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)',
-          backgroundSize: '32px 32px'
-        }} 
-      />
-
+    <div className="relative min-h-screen w-screen bg-[#07090e] text-slate-100 flex flex-col justify-between font-sans overflow-x-hidden selection:bg-slate-700">
       {/* Top Navbar */}
-      <header className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-slate-800/60 bg-[#0b0e14]/80 backdrop-blur-md">
-        <div className="flex items-center space-x-3 cursor-pointer">
-          <BitaraMonogram className="w-7 h-5 text-white" />
-          <span className="font-extrabold text-xl tracking-wider text-white font-mono">
-            BITARA<span className="text-[10px] text-slate-500 font-sans align-top ml-0.5">TM</span>
-          </span>
+      <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-slate-900 bg-[#07090e]">
+        <div className="flex items-center cursor-pointer">
+          <img 
+            src="/logo.png" 
+            alt="Bitara" 
+            className="h-7 w-auto object-contain brightness-110"
+            onError={(e) => {
+              // Fallback text kalau fail belum masuk folder public
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         </div>
-        <div className="flex items-center space-x-4">
+        <div>
           <button className="text-slate-400 hover:text-white transition">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16m-7 6h7" />
@@ -106,42 +85,43 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Area */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 max-w-3xl w-full mx-auto pb-12">
         {messages.length === 0 ? (
           <>
-            <div className="mb-8 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 shadow-sm text-xs text-slate-400 flex items-center space-x-2 text-center max-w-xl">
+            <div className="mb-8 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center space-x-2">
               <span className="text-slate-200">?</span>
-              <span>Bitara Diagnostic Engine v1.0 sedia beroperasi.</span>
+              <span>Bitara Diagnostic v1.0 Ready</span>
             </div>
 
-            {/* Brand Display Tengah */}
-            <div className="flex items-center space-x-4 mb-6">
-              <BitaraMonogram className="w-12 h-9 text-white" />
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-wider text-white font-mono">
-                BITARA<span className="text-xs text-slate-500 align-top">TM</span>
-              </h1>
+            {/* Logo Sebenar di Bahagian Tengah */}
+            <div className="mb-6 flex justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Bitara Logo" 
+                className="h-16 md:h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+              />
             </div>
 
-            <p className="text-sm font-mono text-slate-400 mb-8 tracking-wide">
+            <p className="text-xs font-mono tracking-widest uppercase text-slate-500 mb-8">
               Don't just pass. Dominate.
             </p>
           </>
         ) : (
-          <div className="w-full space-y-5 mb-8 max-h-[60vh] overflow-y-auto pr-2">
+          <div className="w-full space-y-4 mb-8 max-h-[60vh] overflow-y-auto pr-2">
             {messages.map((msg, i) => (
               <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.thought && (
-                  <div className="mb-2 bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl p-3 shadow-sm max-w-xl">
-                    <span className="font-semibold text-slate-200">Proses Diagnostik: </span>
+                  <div className="mb-2 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl p-3 max-w-xl">
+                    <span className="text-slate-200 font-semibold">Diagnostic: </span>
                     {msg.thought}
                   </div>
                 )}
                 <div
-                  className={`p-4 rounded-2xl max-w-xl text-sm leading-relaxed shadow-sm ${
+                  className={`p-4 rounded-2xl max-w-xl text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-slate-100 text-slate-950 font-medium rounded-tr-none'
-                      : 'bg-slate-900/90 border border-slate-800 text-slate-200 rounded-tl-none whitespace-pre-wrap'
+                      ? 'bg-slate-200 text-slate-950 font-medium'
+                      : 'bg-slate-900 border border-slate-800 text-slate-200 whitespace-pre-wrap'
                   }`}
                 >
                   {msg.content}
@@ -150,14 +130,14 @@ export default function App() {
             ))}
             {loading && (
               <div className="text-xs text-slate-500 font-mono animate-pulse">
-                Bitara sedang menganalisis kod & kurikulum...
+                Menganalisis data...
               </div>
             )}
           </div>
         )}
 
-        {/* Input Box Terapung Dark Mode */}
-        <div className="w-full bg-[#121721] border border-slate-800 rounded-2xl p-4 shadow-xl focus-within:border-slate-600 transition">
+        {/* Input Box Ala DeepSeek */}
+        <div className="w-full bg-[#0f131c] border border-slate-800 rounded-2xl p-4 shadow-2xl focus-within:border-slate-600 transition">
           <textarea
             rows={2}
             value={input}
@@ -168,8 +148,8 @@ export default function App() {
                 handleSend();
               }
             }}
-            placeholder="Tampal kod, semak ralat sintaks, atau tanya silibus..."
-            className="w-full bg-transparent resize-none outline-none text-slate-200 placeholder-slate-500 text-sm leading-relaxed font-mono"
+            placeholder="Tanya apa-apa berkaitan kod atau silibus..."
+            className="w-full bg-transparent resize-none outline-none text-slate-200 placeholder-slate-500 text-sm leading-relaxed font-sans"
           />
 
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80">
@@ -180,7 +160,7 @@ export default function App() {
                 className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   deepThinkActive
                     ? 'bg-slate-800 text-slate-100 border border-slate-600'
-                    : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                    : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <span>?</span>
@@ -193,7 +173,7 @@ export default function App() {
                 className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   searchActive
                     ? 'bg-slate-800 text-slate-100 border border-slate-600'
-                    : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                    : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <span>??</span>
@@ -217,20 +197,17 @@ export default function App() {
           </div>
         </div>
 
-        {/* Butang Aksi Pintas */}
+        {/* Action Buttons */}
         {messages.length === 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 hover:text-slate-200 transition">
-              <span>??</span>
-              <span>Workspace Chat</span>
+            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+              ?? Workspace
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 hover:text-slate-200 transition">
-              <span>??</span>
-              <span>Syntax Diagnostic</span>
+            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+              ? Diagnostics
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 hover:text-slate-200 transition">
-              <span>??</span>
-              <span>Curriculum Alignment</span>
+            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+              ?? Curriculum
             </button>
           </div>
         )}
@@ -238,8 +215,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="relative z-10 py-4 px-8 text-center text-xs font-mono text-slate-600 flex items-center justify-center space-x-2 border-t border-slate-900">
-        <span className="font-bold text-slate-400">BITARA</span>
-        <span>• Autonomous Computing Diagnostic Engine</span>
+        <span>BITARA — Autonomous Computing Diagnostics</span>
       </footer>
     </div>
   );
