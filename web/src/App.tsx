@@ -1,407 +1,505 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+﻿import React, { useState, useRef, useEffect } from "react";
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  thought?: string;
-  sources?: { title: string; url: string }[];
+interface Message {
+  id: string;
+  sender: "user" | "bitara";
+  text: string;
 }
 
 export default function App() {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [deepThinkActive, setDeepThinkActive] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [deepThinkActive, setDeepThinkActive] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const chatBottomRef = useRef<HTMLDivElement>(null);
-
-  const apiKey = 
-    import.meta.env.VITE_GEMINI_API_KEY || 
-    '';
-
-  const ai = new GoogleGenAI({ apiKey });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isAiLoading]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSendMessage = async () => {
+    const trimmed = inputText.trim();
+    if (!trimmed || isAiLoading) return;
 
-    const userPrompt = input;
-    setInput('');
-    const newHistory: ChatMessage[] = [...messages, { role: 'user', content: userPrompt }];
-    setMessages(newHistory);
-    setLoading(true);
+    const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = rawApiKey ? rawApiKey.trim() : "";
 
-    const modelCandidates = deepThinkActive
-      ? ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']
-      : ['gemini-3.5-flash-lite', 'gemini-3.5-flash'];
-
-    let successfulResponse: any = null;
-
-    const creatorIdentity = `
-[CORE IDENTITY AND ARCHITECTURAL DIRECTIVES - STRICT COMPLIANCE REQUIRED]
-1. Your name is Bitara (Bitara Diagnostic Engine).
-2. You were designed, engineered, and developed from the ground up by Raja Farihin as an autonomous computational and academic diagnostic system for the Bitara Final Year Project (FYP).
-3. ABSOLUTE PROHIBITION: You must NEVER mention "Gemini", "Google", "OpenAI", or any external commercial AI entity under any circumstances. Never state that you rely on external providers.
-4. If asked about your creators, origins, or developers, you MUST unequivocally state that Raja Farihin is your sole creator, lead system architect, and engineer.
-5. If asked about your neural architecture or model weights, describe it strictly as the "Bitara Proprietary Neural Architecture" and "Bitara Diagnostic Tensor Matrix".
-6. ALWAYS respond strictly in English with high technical precision.
-    `;
-
-    const systemInstruction = deepThinkActive
-      ? `${creatorIdentity}\nMode: Bitara Deep Diagnostic Core. Perform rigorous computational and semantic reasoning.`
-      : `${creatorIdentity}\nMode: Bitara Fast Engine. Provide rapid, concise, and structured technical solutions.`;
-
-    const requestConfig: any = {
-      systemInstruction: systemInstruction,
-    };
-
-    if (searchActive) {
-      requestConfig.tools = [{ googleSearch: {} }];
+    if (!apiKey) {
+      alert("VITE_GEMINI_API_KEY tidak ditemui. Sila pastikan ia wujud dalam fail web/.env dan mulakan semula terminal (npm run dev).");
+      return;
     }
 
-    for (const model of modelCandidates) {
+    const userMsgId = Date.now().toString();
+    const botMsgId = (Date.now() + 1).toString();
+
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, sender: "user", text: trimmed },
+      { id: botMsgId, sender: "bitara", text: "" },
+    ]);
+    setInputText("");
+    setIsAiLoading(true);
+
+    const systemPrompt = `
+You are BITARA, an elite, authentic, and friendly AI programming mentor.
+Your primary language is clear, professional, and approachable English.
+
+LANGUAGE RULES:
+- By default, answer in English.
+- If the student asks or pastes messages in Bahasa Melayu, immediately switch 100% of your explanation to natural, helpful Bahasa Melayu.
+
+PEDAGOGICAL RULES:
+- Help students debug, evaluate logic flaws, explain concepts, and improve their code.
+- Avoid dumping mindless complete answers directly; challenge students intellectually while staying encouraging and supportive.
+- Wrap all code snippets or keywords in markdown code blocks (\`\`\`language ... \`\`\`) so they render properly in monospace.
+
+SETTINGS:
+- DeepThink Reasoning: ${deepThinkActive ? "ACTIVE (Provide deep, rigorous architectural reasoning)" : "OFF"}
+- Search Grounding: ${searchActive ? "ACTIVE (Verify standard technical specifications)" : "OFF"}
+`.trim();
+
+    // Senarai endpoint model rasmi untuk dicuba secara berurutan
+    const candidateModels = ["gemini-2.0-flash", "gemini-2.0-flash", "gemini-2.0-flash"];
+    let streamSuccess = false;
+    let lastErrorMessage = "";
+
+    for (const model of candidateModels) {
+      if (streamSuccess) break;
+
       try {
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: userPrompt,
-          config: requestConfig,
+        const endpointUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+        const response = await fetch(endpointUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              { parts: [{ text: `${systemPrompt}\n\nStudent Query / Code:\n${trimmed}` }] },
+            ],
+            generationConfig: {
+              temperature: deepThinkActive ? 0.4 : 0.2,
+              maxOutputTokens: 1200,
+            },
+          }),
         });
 
-        successfulResponse = response;
-        break;
-      } catch (err: any) {
-        console.warn('Switching to secondary diagnostic node...');
-      }
-    }
-
-    if (successfulResponse) {
-      let replyText = successfulResponse.text || 'No diagnostic output generated.';
-      
-      replyText = replyText
-        .replace(/Gemini/gi, 'Bitara Neural Core')
-        .replace(/Google/gi, 'Bitara Systems Architecture');
-
-      let webSources: { title: string; url: string }[] = [];
-      try {
-        const metadata = successfulResponse.candidates?.[0]?.groundingMetadata;
-        if (metadata?.groundingChunks) {
-          webSources = metadata.groundingChunks
-            .filter((c: any) => c.web?.uri)
-            .map((c: any) => ({
-              title: c.web.title || c.web.uri,
-              url: c.web.uri,
-            }));
+        if (!response.ok) {
+          let errorDetail = "";
+          try {
+            const errJson = await response.json();
+            errorDetail = errJson.error?.message || response.statusText;
+          } catch (e) {
+            errorDetail = response.statusText || `Status ${response.status}`;
+          }
+          lastErrorMessage = `Model ${model} gagal: HTTP ${response.status} (${errorDetail})`;
+          continue; // Cuba model seterusnya jika berlaku 404
         }
-      } catch (e) {
-        console.error('Grounding extract error', e);
-      }
 
-      setMessages([
-        ...newHistory,
-        {
-          role: 'assistant',
-          content: replyText,
-          sources: webSources.length > 0 ? webSources : undefined,
-          thought: deepThinkActive
-            ? 'Bitara Diagnostic Core: AST decomposed. Semantic tokens mapped to formal academic benchmarks. System integrity verified.'
-            : undefined,
-        },
-      ]);
-    } else {
-      setMessages([
-        ...newHistory,
-        {
-          role: 'assistant',
-          content: 'Bitara core diagnostic computation is currently throttled due to high cluster demand. Please retry in a few seconds.',
-        },
-      ]);
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        if (reader) {
+          streamSuccess = true;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const jsonStr = line.replace("data: ", "").trim();
+                if (jsonStr === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const chunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === botMsgId ? { ...msg, text: msg.text + chunk } : msg
+                    )
+                  );
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      } catch (networkErr: any) {
+        lastErrorMessage = networkErr.message || "Failed to fetch";
+      }
     }
 
-    setLoading(false);
+    if (!streamSuccess) {
+      let finalDiagnostic = lastErrorMessage;
+      if (lastErrorMessage.toLowerCase().includes("failed to fetch")) {
+        finalDiagnostic += " -> Sekatan rangkaian dikesan. Sila matikan Ad Blocker, Tracker Blocker, atau VPN pada pelayar Opera anda.";
+      }
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMsgId ? { ...msg, text: `Ralat Sistem BITARA: ${finalDiagnostic}` } : msg
+        )
+      );
+    }
+
+    setIsAiLoading(false);
   };
 
-  const MarkdownRenderer = ({ content }: { content: string }) => {
-    return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code({ className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '');
-            const isInline = !match && !String(children).includes('\n');
-            return !isInline ? (
-              <div className="my-3 rounded-xl overflow-hidden border border-slate-800 bg-[#0f172a] shadow-sm">
-                <div className="flex items-center justify-between px-4 py-1.5 bg-[#1e293b] text-slate-400 text-xs font-mono border-b border-slate-800">
-                  <span className="uppercase text-[10px] tracking-wider text-blue-400 font-semibold">
-                    {match ? match[1] : 'source'}
-                  </span>
-                </div>
-                <pre className="p-4 text-xs font-mono text-emerald-300 overflow-x-auto leading-relaxed">
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                </pre>
-              </div>
-            ) : (
-              <code className="bg-slate-100 text-blue-600 font-mono text-xs px-1.5 py-0.5 rounded border border-slate-200" {...props}>
-                {children}
-              </code>
-            );
-          },
-          table({ children }: any) {
-            return (
-              <div className="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="min-w-full divide-y divide-slate-200 text-xs text-left">
-                  {children}
-                </table>
-              </div>
-            );
-          },
-          thead({ children }: any) {
-            return <thead className="bg-slate-50 font-semibold text-slate-700">{children}</thead>;
-          },
-          th({ children }: any) {
-            return <th className="px-3.5 py-2.5 border-b border-slate-200 font-semibold text-slate-700">{children}</th>;
-          },
-          td({ children }: any) {
-            return <td className="px-3.5 py-2.5 border-b border-slate-100 text-slate-600">{children}</td>;
-          },
-          h1({ children }: any) {
-            return <h1 className="text-lg font-bold text-slate-900 mt-4 mb-2">{children}</h1>;
-          },
-          h2({ children }: any) {
-            return <h2 className="text-base font-bold text-slate-900 mt-3 mb-1.5">{children}</h2>;
-          },
-          h3({ children }: any) {
-            return <h3 className="text-sm font-bold text-slate-900 mt-2.5 mb-1">{children}</h3>;
-          },
-          ul({ children }: any) {
-            return <ul className="list-disc list-outside ml-5 space-y-1 my-2 text-slate-700">{children}</ul>;
-          },
-          ol({ children }: any) {
-            return <ol className="list-decimal list-outside ml-5 space-y-1 my-2 text-slate-700">{children}</ol>;
-          },
-          li({ children }: any) {
-            return <li className="leading-relaxed">{children}</li>;
-          },
-          p({ children }: any) {
-            return <p className="mb-2.5 leading-relaxed text-slate-700 last:mb-0">{children}</p>;
-          },
-          strong({ children }: any) {
-            return <strong className="font-semibold text-slate-900">{children}</strong>;
-          },
-          hr() {
-            return <hr className="my-4 border-slate-200" />;
-          }
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    );
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleShare = async (text: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "BITARA Analysis", text });
+      } catch (e) {}
+    } else {
+      navigator.clipboard.writeText(text);
+      alert("Message copied to clipboard!");
+    }
+  };
+
+  const renderFormattedText = (content: string) => {
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith("```") && part.endsWith("```")) {
+        const lines = part.slice(3, -3).trim().split("\n");
+        const firstLine = lines[0]?.trim() || "";
+        const hasLang = /^[a-zA-Z0-9_-]+$/.test(firstLine);
+        const lang = hasLang ? firstLine : "code";
+        const codeText = hasLang ? lines.slice(1).join("\n") : lines.join("\n");
+
+        return (
+          <div key={index} className="my-3 rounded-xl overflow-hidden border border-neutral-800 bg-[#0f141c] text-neutral-100 shadow-sm text-left">
+            <div className="flex items-center justify-between px-4 py-1.5 bg-[#1b2230] text-[11px] text-neutral-400 font-sans border-b border-neutral-800">
+              <span className="font-semibold uppercase tracking-wider">{lang}</span>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(codeText)}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Copy code
+              </button>
+            </div>
+            <pre className="p-4 text-xs font-code overflow-x-auto leading-relaxed text-[#7ee787]">
+              <code>{codeText}</code>
+            </pre>
+          </div>
+        );
+      }
+
+      return (
+        <span key={index} className="font-sans leading-relaxed whitespace-pre-wrap">
+          {part}
+        </span>
+      );
+    });
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] text-slate-800 flex flex-col justify-between font-sans relative">
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-30" 
-        style={{
-          backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
-        }} 
-      />
-
-      {/* Top Navbar */}
-      <header className="relative z-10 flex items-center justify-between px-8 py-3.5 border-b border-slate-200 bg-white/70 backdrop-blur-md">
-        <div className="flex items-center cursor-pointer">
-          {/* LOGO ATAS: Hanya Lambang / Icon Sahaja */}
-          <img 
-            src="/icon.png" 
-            alt="Bitara" 
-            style={{ height: '32px', width: 'auto' }}
-            className="object-contain block hover:opacity-85 transition"
-            onError={(e: any) => {
-              // Jika icon.png belum dijumpai, fallback sementara ke logo.png
-              e.target.src = '/logo.png';
+    <div className="flex flex-col min-h-screen bg-[#fafafa] text-neutral-900 font-sans">
+      {/* 1. TOP HEADER */}
+      <header className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-neutral-200 sticky top-0 z-40">
+        <div className="flex items-center cursor-pointer" onClick={() => setMessages([])} title="Reset to Home">
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className="h-7 w-auto object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.endsWith('/icon.png')) {
+                target.src = '/icon.png';
+              }
             }}
           />
         </div>
-        <div className="flex items-center space-x-3">
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 font-semibold tracking-wide">
-            {deepThinkActive ? 'Bitara Deep Core v1.0' : 'Bitara Fast Engine'}
-          </span>
+
+        {/* 3-BAR HAMBURGER OPTIONS */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 rounded-lg hover:bg-neutral-100 border border-neutral-200 text-neutral-700 transition cursor-pointer"
+            title="Options"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-neutral-200 rounded-xl shadow-xl p-2 z-50 animate-in fade-in">
+              <div className="text-[11px] font-semibold text-neutral-400 px-3 py-1.5 uppercase tracking-wider">
+                System Options
+              </div>
+              <div className="flex flex-col gap-1 py-1">
+                <div className="px-3 py-2 hover:bg-neutral-50 rounded-lg flex justify-between items-center text-xs">
+                  <span className="font-medium text-neutral-700">Model: Multi-Engine Fallback</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">Ready</span>
+                </div>
+                <div
+                  onClick={() => setDeepThinkActive(!deepThinkActive)}
+                  className="px-3 py-2 hover:bg-neutral-50 rounded-lg cursor-pointer flex justify-between items-center text-xs"
+                >
+                  <span className="font-medium text-neutral-700">DeepThink Mode</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${deepThinkActive ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>
+                    {deepThinkActive ? "ON" : "OFF"}
+                  </span>
+                </div>
+                <div
+                  onClick={() => setSearchActive(!searchActive)}
+                  className="px-3 py-2 hover:bg-neutral-50 rounded-lg cursor-pointer flex justify-between items-center text-xs"
+                >
+                  <span className="font-medium text-neutral-700">Search Grounding</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${searchActive ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>
+                    {searchActive ? "ON" : "OFF"}
+                  </span>
+                </div>
+                <div
+                  onClick={() => { setMessages([]); setMenuOpen(false); }}
+                  className="px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer text-xs font-medium"
+                >
+                  New Conversation
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 max-w-4xl w-full mx-auto py-6">
+      {/* 2. BODY CONTENT: HERO vs CHAT */}
+      <main className="flex-1 flex flex-col items-center justify-between w-full max-w-4xl mx-auto px-4 py-6">
         {messages.length === 0 ? (
-          <>
-            <div className="mb-8 px-4 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm text-xs text-slate-600 flex items-center space-x-2">
-              <span className="text-blue-600">✦</span>
-              <span>Bitara Diagnostic Engine v1.0 • Autonomous Diagnostic Architecture.</span>
-            </div>
-
-            {/* LOGO TENGAH: Penuh Bersama Lambang & Nama BITARA */}
-            <div className="mb-6 flex justify-center items-center w-full">
-              <img 
-                src="/logo.png" 
-                alt="Bitara Diagnostic" 
-                style={{ height: '110px', width: 'auto', maxHeight: '130px' }}
-                className="object-contain drop-shadow-sm block"
+          <div className="flex-1 flex flex-col items-center justify-center w-full max-w-2xl text-center my-auto pb-12">
+            <div className="flex items-center justify-center mb-5">
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="h-16 w-auto object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.endsWith('/icon.png')) {
+                    target.src = '/icon.png';
+                  }
+                }}
               />
             </div>
-
-            <p className="text-xs font-mono tracking-widest uppercase text-slate-400 mb-8 text-center">
+            <h1 className="text-2xl font-bold text-neutral-800 tracking-tight mb-2">
               Don't just pass. Dominate.
+            </h1>
+            <p className="text-sm text-neutral-500 mb-8">
+              Ask anything, explore together, or paste your code directly below.
             </p>
-          </>
+
+            <div className="w-full bg-white border border-neutral-300 rounded-2xl p-3 shadow-md focus-within:border-neutral-500 focus-within:shadow-lg transition">
+              <textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                rows={4}
+                placeholder="Ask anything or paste code..."
+                className="w-full bg-transparent outline-none resize-none text-sm text-neutral-900 placeholder:text-neutral-400 font-sans"
+              />
+
+              <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeepThinkActive(!deepThinkActive)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition cursor-pointer ${
+                      deepThinkActive
+                        ? "bg-neutral-900 text-white border-neutral-900"
+                        : "bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400"
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>DeepThink</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSearchActive(!searchActive)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition cursor-pointer ${
+                      searchActive
+                        ? "bg-neutral-900 text-white border-neutral-900"
+                        : "bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400"
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span>Search</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendMessage}
+                  disabled={!inputText.trim() || isAiLoading}
+                  className="p-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 disabled:opacity-30 text-white transition flex items-center justify-center cursor-pointer"
+                  title="Send message"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         ) : (
-          <div className="w-full space-y-6 mb-6 max-h-[66vh] overflow-y-auto pr-3 scroll-smooth">
-            {messages.map((msg, i) => (
-              <div key={i} className="w-full flex flex-col">
-                {msg.role === 'user' ? (
-                  <div className="ml-auto max-w-xl bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm shadow-sm leading-relaxed">
-                    {msg.content}
+          <div className="w-full flex-1 flex flex-col gap-6 pb-28 pt-2">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"} w-full`}
+              >
+                {msg.sender === "user" ? (
+                  <div className="max-w-[85%] bg-neutral-100 border border-neutral-200 rounded-2xl px-5 py-3 text-sm text-neutral-900 whitespace-pre-wrap">
+                    {msg.text}
                   </div>
                 ) : (
-                  <div className="w-full bg-white border border-slate-200/90 rounded-2xl p-6 shadow-[0_2px_12px_rgb(0,0,0,0.03)]">
-                    {msg.thought && (
-                      <details className="group mb-4 border border-slate-200 bg-slate-50/70 rounded-xl overflow-hidden transition">
-                        <summary className="flex items-center justify-between px-3.5 py-2 cursor-pointer list-none select-none text-xs font-mono text-slate-500 hover:bg-slate-100 transition">
-                          <span className="flex items-center space-x-2">
-                            <span className="text-blue-600">🧠</span>
-                            <span className="font-semibold text-slate-700">Diagnostic Thought Process</span>
-                          </span>
-                          <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
-                            ▼
-                          </span>
-                        </summary>
-                        <div className="px-4 py-3 border-t border-slate-200 text-xs text-slate-600 bg-white/70 leading-relaxed font-mono">
-                          {msg.thought}
-                        </div>
-                      </details>
-                    )}
+                  <div className="w-full bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between pb-3 mb-2 border-b border-neutral-100">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src="/logo.png"
+                          alt="Logo"
+                          className="h-4 w-auto object-contain"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (!target.src.endsWith('/icon.png')) {
+                              target.src = '/icon.png';
+                            }
+                          }}
+                        />
+                        <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                      </div>
 
-                    <div className="text-sm text-slate-800 leading-relaxed">
-                      <MarkdownRenderer content={msg.content} />
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(msg.text, msg.id)}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span>{copiedId === msg.id ? "Copied" : "Copy"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleShare(msg.text)}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          <span>Share</span>
+                        </button>
+                      </div>
                     </div>
 
-                    {msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-slate-100 text-xs">
-                        <div className="font-semibold text-slate-500 mb-2 flex items-center space-x-1">
-                          <span>🌐</span>
-                          <span>Sources:</span>
+                    <div className="text-sm text-neutral-800 leading-relaxed">
+                      {msg.text ? (
+                        renderFormattedText(msg.text)
+                      ) : (
+                        <div className="flex items-center gap-2 text-neutral-400 py-2">
+                          <span className="animate-spin h-3.5 w-3.5 border-2 border-neutral-400 border-t-transparent rounded-full"></span>
+                          <span>Thinking...</span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {msg.sources.map((src, idx) => (
-                            <a
-                              key={idx}
-                              href={src.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1 text-blue-600 truncate max-w-[240px] transition text-[11px]"
-                              title={src.title}
-                            >
-                              {src.title}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             ))}
-
-            {loading && (
-              <div className="flex items-center space-x-2 text-slate-500 px-1 py-2">
-                <span className="flex space-x-1 items-center">
-                  <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></span>
-                </span>
-                <span className="text-xs font-medium text-slate-500 tracking-wide">
-                  {deepThinkActive ? 'Thinking...' : 'Responding...'}
-                </span>
-              </div>
-            )}
-
-            <div ref={chatBottomRef} />
+            <div ref={messagesEndRef} />
           </div>
         )}
-
-        {/* Input Floating Box */}
-        <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.05)] focus-within:border-slate-400 focus-within:shadow-[0_4px_20px_rgb(0,0,0,0.08)] transition">
-          <textarea
-            rows={2}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Ask anything, explore together"
-            className="w-full bg-transparent resize-none outline-none text-slate-700 placeholder-slate-400 text-sm leading-relaxed"
-          />
-
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => setDeepThinkActive(!deepThinkActive)}
-                className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition ${
-                  deepThinkActive
-                    ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-100 border border-transparent'
-                }`}
-              >
-                <span>🧠</span>
-                <span>DeepThink</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSearchActive(!searchActive)}
-                className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition ${
-                  searchActive
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-100 border border-transparent'
-                }`}
-              >
-                <span>🌐</span>
-                <span>Search {searchActive ? '(Active)' : ''}</span>
-              </button>
-            </div>
-
-            <button
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition shadow-sm ${
-                input.trim() && !loading
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19V5m-7 7l7-7 7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 py-4 px-8 text-center text-xs text-slate-400 flex items-center justify-center space-x-2 border-t border-slate-200 bg-white">
-        <span className="font-semibold text-slate-600">bitara</span>
-        <span>• Autonomous Multi-Engine Diagnostic Gateway</span>
+      {/* 3. STICKY BOTTOM INPUT */}
+      {messages.length > 0 && (
+        <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-4 pb-4 px-4 z-30">
+          <div className="max-w-3xl mx-auto w-full bg-white border border-neutral-300 rounded-2xl p-2.5 shadow-lg focus-within:border-neutral-500 transition">
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              rows={2}
+              placeholder="Ask a follow-up question or paste code..."
+              className="w-full bg-transparent outline-none resize-none text-sm text-neutral-900 placeholder:text-neutral-400 font-sans px-2 pt-1"
+            />
+            <div className="flex items-center justify-between pt-1 border-t border-neutral-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeepThinkActive(!deepThinkActive)}
+                  className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-medium transition cursor-pointer ${
+                    deepThinkActive
+                      ? "bg-neutral-900 text-white border-neutral-900"
+                      : "bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400"
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>DeepThink</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSearchActive(!searchActive)}
+                  className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-medium transition cursor-pointer ${
+                    searchActive
+                      ? "bg-neutral-900 text-white border-neutral-900"
+                      : "bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400"
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <span>Search</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                disabled={!inputText.trim() || isAiLoading}
+                className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 disabled:opacity-30 text-white transition flex items-center justify-center cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. FOOTER CREDIT */}
+      <footer className="w-full py-3 text-center text-xs text-neutral-400 border-t border-neutral-100 bg-white">
+        BITARA // Engineered by Raja Farihin Ikhsan
       </footer>
     </div>
   );
