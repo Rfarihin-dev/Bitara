@@ -62,22 +62,21 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen w-screen bg-[#07090e] text-slate-100 flex flex-col justify-between font-sans overflow-x-hidden selection:bg-slate-700">
+    <div className="relative min-h-screen w-screen bg-black text-neutral-100 flex flex-col justify-between font-sans overflow-x-hidden selection:bg-neutral-700">
       {/* Top Navbar */}
-      <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-slate-900 bg-[#07090e]">
+      <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-neutral-900 bg-black">
         <div className="flex items-center cursor-pointer">
-          <img 
-            src="/logo.png" 
-            alt="Bitara" 
+          <img
+            src="/logo.png"
+            alt="Bitara"
             className="h-7 w-auto object-contain brightness-110"
             onError={(e) => {
-              // Fallback text kalau fail belum masuk folder public
               e.currentTarget.style.display = 'none';
             }}
           />
         </div>
         <div>
-          <button className="text-slate-400 hover:text-white transition">
+          <button className="text-neutral-400 hover:text-white transition">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
@@ -89,21 +88,20 @@ export default function App() {
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 max-w-3xl w-full mx-auto pb-12">
         {messages.length === 0 ? (
           <>
-            <div className="mb-8 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center space-x-2">
-              <span className="text-slate-200">?</span>
-              <span>Bitara Diagnostic v1.0 Ready</span>
+            <div className="mb-8 px-4 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 flex items-center space-x-2">
+              <span className="text-neutral-200">?</span>
+              <span>Bitara Diagnostic v1.0</span>
             </div>
 
-            {/* Logo Sebenar di Bahagian Tengah */}
             <div className="mb-6 flex justify-center">
-              <img 
-                src="/logo.png" 
-                alt="Bitara Logo" 
+              <img
+                src="/logo.png"
+                alt="Bitara Logo"
                 className="h-16 md:h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]"
               />
             </div>
 
-            <p className="text-xs font-mono tracking-widest uppercase text-slate-500 mb-8">
+            <p className="text-xs font-mono tracking-widest uppercase text-neutral-500 mb-8">
               Don't just pass. Dominate.
             </p>
           </>
@@ -112,16 +110,16 @@ export default function App() {
             {messages.map((msg, i) => (
               <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.thought && (
-                  <div className="mb-2 bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 rounded-xl p-3 max-w-xl">
-                    <span className="text-slate-200 font-semibold">Diagnostic: </span>
+                  <div className="mb-2 bg-neutral-900 border border-neutral-800 text-xs font-mono text-neutral-400 rounded-xl p-3 max-w-xl">
+                    <span className="text-neutral-200 font-semibold">Diagnostic: </span>
                     {msg.thought}
                   </div>
                 )}
                 <div
                   className={`p-4 rounded-2xl max-w-xl text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-slate-200 text-slate-950 font-medium'
-                      : 'bg-slate-900 border border-slate-800 text-slate-200 whitespace-pre-wrap'
+                      ? 'bg-neutral-200 text-neutral-950 font-medium'
+                      : 'bg-neutral-900 border border-neutral-800 text-neutral-200 whitespace-pre-wrap'
                   }`}
                 >
                   {msg.content}
@@ -129,15 +127,15 @@ export default function App() {
               </div>
             ))}
             {loading && (
-              <div className="text-xs text-slate-500 font-mono animate-pulse">
+              <div className="text-xs text-neutral-500 font-mono animate-pulse">
                 Menganalisis data...
               </div>
             )}
           </div>
         )}
 
-        {/* Input Box Ala DeepSeek */}
-        <div className="w-full bg-[#0f131c] border border-slate-800 rounded-2xl p-4 shadow-2xl focus-within:border-slate-600 transition">
+        {/* Input Box */}
+        <div className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl p-4 shadow-2xl focus-within:border-neutral-600 transition">
           <textarea
             rows={2}
             value={input}
@@ -149,18 +147,18 @@ export default function App() {
               }
             }}
             placeholder="Tanya apa-apa berkaitan kod atau silibus..."
-            className="w-full bg-transparent resize-none outline-none text-slate-200 placeholder-slate-500 text-sm leading-relaxed font-sans"
+            className="w-full bg-transparent resize-none outline-none text-neutral-200 placeholder-neutral-500 text-sm leading-relaxed font-sans"
           />
 
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-800/80">
             <div className="flex items-center space-x-2">
               <button
                 type="button"
                 onClick={() => setDeepThinkActive(!deepThinkActive)}
                 className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   deepThinkActive
-                    ? 'bg-slate-800 text-slate-100 border border-slate-600'
-                    : 'text-slate-500 hover:text-slate-300'
+                    ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
                 <span>?</span>
@@ -172,8 +170,8 @@ export default function App() {
                 onClick={() => setSearchActive(!searchActive)}
                 className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   searchActive
-                    ? 'bg-slate-800 text-slate-100 border border-slate-600'
-                    : 'text-slate-500 hover:text-slate-300'
+                    ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
                 <span>??</span>
@@ -186,8 +184,8 @@ export default function App() {
               disabled={loading || !input.trim()}
               className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
                 input.trim() && !loading
-                  ? 'bg-white text-slate-950 hover:bg-slate-200'
-                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  ? 'bg-white text-neutral-950 hover:bg-neutral-200'
+                  : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
               }`}
             >
               <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -200,13 +198,13 @@ export default function App() {
         {/* Action Buttons */}
         {messages.length === 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
               ?? Workspace
             </button>
-            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
               ? Diagnostics
             </button>
-            <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-mono text-slate-400 transition">
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
               ?? Curriculum
             </button>
           </div>
@@ -214,8 +212,8 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 py-4 px-8 text-center text-xs font-mono text-slate-600 flex items-center justify-center space-x-2 border-t border-slate-900">
-        <span>BITARA — Autonomous Computing Diagnostics</span>
+      <footer className="relative z-10 py-4 px-8 text-center text-xs font-mono text-neutral-600 flex items-center justify-center space-x-2 border-t border-neutral-900">
+        <span>BITARA ï¿½ Autonomous Computing Diagnostics</span>
       </footer>
     </div>
   );
