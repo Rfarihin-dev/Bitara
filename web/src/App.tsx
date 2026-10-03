@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { GoogleGenAI } from '@google/genai';
 
 interface ChatMessage {
@@ -14,30 +14,21 @@ export default function App() {
   const [deepThinkActive, setDeepThinkActive] = useState(true);
   const [searchActive, setSearchActive] = useState(false);
 
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+  const ai = new GoogleGenAI({ apiKey });
+
   const handleSend = async () => {
-    const userPrompt = input.trim();
-    if (!userPrompt || loading) return;
+    if (!input.trim() || loading) return;
 
+    const userPrompt = input;
     setInput('');
-
-    const newHistory: ChatMessage[] = [
-      ...messages,
-      { role: 'user', content: userPrompt },
-    ];
-
+    const newHistory: ChatMessage[] = [...messages, { role: 'user', content: userPrompt }];
     setMessages(newHistory);
     setLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-      if (!apiKey) {
-        throw new Error('VITE_GEMINI_API_KEY is missing from your .env file.');
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: userPrompt,
         config: {
           systemInstruction: deepThinkActive
@@ -46,25 +37,24 @@ export default function App() {
         },
       });
 
+      const replyText = response.text || 'Tiada respon diterima.';
       setMessages([
         ...newHistory,
         {
           role: 'assistant',
-          content: response.text || 'Tiada respon diterima.',
+          content: replyText,
           thought: deepThinkActive
             ? 'Bitara Diagnostic: Validating AST patterns & aligning curriculum logic...'
             : undefined,
         },
       ]);
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Sila pastikan API Key adalah sah.';
-
+    } catch (err: any) {
       setMessages([
         ...newHistory,
-        { role: 'assistant', content: `Ralat enjin: ${errorMessage}` },
+        {
+          role: 'assistant',
+          content: `Ralat enjin: ${err.message || 'Sila pastikan API Key adalah sah.'}`,
+        },
       ]);
     } finally {
       setLoading(false);
@@ -72,216 +62,158 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col justify-between overflow-x-hidden bg-black font-sans text-white selection:bg-white selection:text-black">
-      <header className="flex items-center justify-between border-b border-white/10 bg-black px-6 py-4 md:px-8">
-        <img
-          src="/logo.png"
-          alt="Bitara"
-          className="h-7 w-auto object-contain"
-          onError={(event) => {
-            event.currentTarget.style.display = 'none';
-          }}
-        />
-
-        <button
-          type="button"
-          aria-label="Open menu"
-          className="rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-        >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.75}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
+    <div className="relative min-h-screen w-screen bg-black text-neutral-100 flex flex-col justify-between font-sans overflow-x-hidden selection:bg-neutral-700">
+      {/* Top Navbar */}
+      <header className="relative z-10 flex items-center justify-between px-8 py-4 border-b border-neutral-900 bg-black">
+        <div className="flex items-center cursor-pointer">
+          <img
+            src="/icon.png"
+            alt="Bitara"
+            className="h-7 w-auto object-contain brightness-110"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+        <div>
+          <button className="text-neutral-400 hover:text-white transition">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+        </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 pb-12">
+      {/* Main Area */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 max-w-3xl w-full mx-auto pb-12">
         {messages.length === 0 ? (
           <>
-            <div className="mb-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/40 text-[10px] font-bold text-white">
-                B
-              </span>
-              <span>BITARA DIAGNOSTIC V1.0</span>
+            <div className="mb-8 px-4 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 flex items-center space-x-2">
+              <span className="text-neutral-200">?</span>
+              <span>Bitara Diagnostic v1.0</span>
             </div>
 
-            <img
-              src="/logo.png"
-              alt="Bitara Logo"
-              className="mb-6 h-16 w-auto object-contain md:h-20"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="mb-6 flex justify-center">
+              <img
+                src="/logo.png"
+                alt="Bitara Logo"
+                className="h-30 md:h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+              />
+            </div>
 
-            <p className="mb-8 text-center font-mono text-xs uppercase tracking-[0.25em] text-white/50">
-              Don&apos;t just pass. Dominate.
+            <p className="text-xs font-mono tracking-widest uppercase text-neutral-500 mb-8">
+              Don't just pass. Dominate.
             </p>
           </>
         ) : (
-          <div className="mb-8 max-h-[60vh] w-full space-y-5 overflow-y-auto pr-2">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex flex-col ${
-                  message.role === 'user' ? 'items-end' : 'items-start'
-                }`}
-              >
-                {message.thought && (
-                  <div className="mb-2 max-w-xl rounded-xl border border-white/15 bg-white/5 p-3 font-mono text-xs text-white/60">
-                    <span className="font-semibold text-white">Diagnostic: </span>
-                    {message.thought}
+          <div className="w-full space-y-4 mb-8 max-h-[60vh] overflow-y-auto pr-2">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {msg.thought && (
+                  <div className="mb-2 bg-neutral-900 border border-neutral-800 text-xs font-mono text-neutral-400 rounded-xl p-3 max-w-xl">
+                    <span className="text-neutral-200 font-semibold">Diagnostic: </span>
+                    {msg.thought}
                   </div>
                 )}
-
                 <div
-                  className={`max-w-xl whitespace-pre-wrap rounded-2xl p-4 text-sm leading-relaxed ${
-                    message.role === 'user'
-                      ? 'bg-white font-medium text-black'
-                      : 'border border-white/15 bg-white/5 text-white/90'
+                  className={`p-4 rounded-2xl max-w-xl text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-neutral-200 text-neutral-950 font-medium'
+                      : 'bg-neutral-900 border border-neutral-800 text-neutral-200 whitespace-pre-wrap'
                   }`}
                 >
-                  {message.content}
+                  {msg.content}
                 </div>
               </div>
             ))}
-
             {loading && (
-              <div className="animate-pulse font-mono text-xs text-white/50">
-                Menganalisis data...
+              <div className="text-xs text-neutral-500 font-mono animate-pulse">
+                Analyzing...
               </div>
             )}
           </div>
         )}
 
-        <div className="w-full rounded-2xl border border-white/20 bg-black p-4 shadow-2xl transition focus-within:border-white/50">
+        {/* Input Box */}
+        <div className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl p-4 shadow-2xl focus-within:border-neutral-600 transition">
           <textarea
             rows={2}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 handleSend();
               }
             }}
-            placeholder="Tanya apa-apa berkaitan kod atau silibus..."
-            className="w-full resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-white/35"
+            placeholder="Ask anything, explore together"
+            className="w-full bg-transparent resize-none outline-none text-neutral-200 placeholder-neutral-500 text-sm leading-relaxed font-sans"
           />
 
-          <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-800/80">
+            <div className="flex items-center space-x-2">
               <button
                 type="button"
-                aria-pressed={deepThinkActive}
-                onClick={() => setDeepThinkActive((active) => !active)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs transition ${
+                onClick={() => setDeepThinkActive(!deepThinkActive)}
+                className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   deepThinkActive
-                    ? 'border-white bg-white text-black'
-                    : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white'
+                    ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M9 18h6m-5 4h4m-2-20a7 7 0 0 0-4 12.75c.5.35 1 1.25 1 2.25h6c0-1 .5-1.9 1-2.25A7 7 0 0 0 12 2Z"
-                  />
-                </svg>
-                DeepThink
+                <span>?</span>
+                <span>DeepThink</span>
               </button>
 
               <button
                 type="button"
-                aria-pressed={searchActive}
-                onClick={() => setSearchActive((active) => !active)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs transition ${
+                onClick={() => setSearchActive(!searchActive)}
+                className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono transition ${
                   searchActive
-                    ? 'border-white bg-white text-black'
-                    : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white'
+                    ? 'bg-neutral-800 text-neutral-100 border border-neutral-600'
+                    : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" strokeWidth={1.8} />
-                  <path
-                    strokeLinecap="round"
-                    strokeWidth={1.8}
-                    d="m16 16 4 4"
-                  />
-                </svg>
-                Search
+                <span>??</span>
+                <span>Search</span>
               </button>
             </div>
 
             <button
-              type="button"
               onClick={handleSend}
               disabled={loading || !input.trim()}
-              aria-label="Send message"
-              className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
                 input.trim() && !loading
-                  ? 'bg-white text-black hover:bg-white/80'
-                  : 'cursor-not-allowed bg-white/10 text-white/30'
+                  ? 'bg-white text-neutral-950 hover:bg-neutral-200'
+                  : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
               }`}
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19V5m-7 7 7-7 7 7"
-                />
+              <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19V5m-7 7l7-7 7 7" />
               </svg>
             </button>
           </div>
         </div>
 
+        {/* Action Buttons */}
         {messages.length === 0 && (
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {['Workspace', 'Diagnostics', 'Curriculum'].map((label) => (
-              <button
-                key={label}
-                type="button"
-                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 font-mono text-xs text-white/60 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
+              ?? Workspace
+            </button>
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
+              ? Diagnostics
+            </button>
+            <button className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-400 transition">
+              ?? Curriculum
+            </button>
           </div>
         )}
       </main>
 
-      <footer className="flex items-center justify-center border-t border-white/10 px-8 py-4 text-center font-mono text-xs text-white/40">
-        BITARA — Autonomous Computing Diagnostics
+      {/* Footer */}
+      <footer className="relative z-10 py-4 px-8 text-center text-xs font-mono text-neutral-600 flex items-center justify-center space-x-2 border-t border-neutral-900">
+        <span>BITARA</span>
       </footer>
     </div>
   );
