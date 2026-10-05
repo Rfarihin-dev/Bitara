@@ -102,7 +102,7 @@ export default function App() {
             </div>
 
             <p className="text-xs font-mono tracking-widest uppercase text-neutral-500 mb-8">
-              Don't just pass. Dominate.
+              Beyond the syntax.
             </p>
           </>
         ) : (
